@@ -1,5 +1,9 @@
 # Maverick
 
+<p align="center">
+  <img src="images/Maverick.png" alt="Maverick" width="500"/>
+</p>
+
 An Adaptix C2 agent built with Crystal Palace — a custom PIC (Position Independent Code) linker and PICO module system. Demonstrates how to build modular shellcode agents where each component (transport, tasks, obfuscation) is a separate PICO blob loaded at runtime.
 
 ## Note
@@ -158,4 +162,8 @@ src_beacon/Source/
 - [PICO-Implant](https://github.com/pard0p/PICO-Implant)
 - [Modular PIC C2 Agents](https://rastamouse.me/modular-pic-c2-agents/)
 
+## PoC
 
+<p align="center">
+  <img src="images/mvk_poc.png" alt="Maverick PoC"/>
+</p>
