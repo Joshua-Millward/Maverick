@@ -1,0 +1,21 @@
+# Build artifacts
+Bin/
+*.x64.o
+*.x86.o
+*.bin
+*.exe
+*.dll
+
+# Go plugin output
+src_server/dist/
+src_listener/dist/
+*.so
+
+# Editor
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db

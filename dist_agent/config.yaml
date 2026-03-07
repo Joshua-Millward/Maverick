@@ -1,0 +1,8 @@
+extender_type: "agent"
+extender_file: "maverick.so"
+ax_file: "ax_config.axs"
+agent_name: "maverick"
+agent_watermark: "b1f83d50"
+listeners:
+  - "MaverickHTTP"
+multi_listeners: false

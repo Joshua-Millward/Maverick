@@ -1,0 +1,7 @@
+extender_type: "listener"
+extender_file: "maverick_listener.so"
+ax_file: "ax_config.axs"
+
+listener_name: "MaverickHTTP"
+listener_type: "external"
+protocol: "http"
